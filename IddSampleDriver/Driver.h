@@ -103,6 +103,8 @@ namespace Microsoft
         protected:
             WDFDEVICE m_WdfDevice;
             IDDCX_ADAPTER m_Adapter;
+
+			IDDCX_MONITOR* m_Monitors[8]; //We support up to 8 monitors.
         };
 
         class IndirectMonitorContext

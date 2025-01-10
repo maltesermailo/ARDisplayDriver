@@ -24,7 +24,7 @@ using namespace Microsoft::WRL;
 
 #pragma region SampleMonitors
 
-static constexpr DWORD IDD_SAMPLE_MONITOR_COUNT = 3; // If monitor count > ARRAYSIZE(s_SampleMonitors), we create edid-less monitors
+static constexpr DWORD IDD_MAX_MONITOR_COUNT = 8; // If monitor count > ARRAYSIZE(s_SampleMonitors), we create edid-less monitors
 
 // Default modes reported for edid-less monitors. The first mode is set as preferred
 static const struct IndirectSampleMonitor::SampleMonitorMode s_SampleDefaultModes[] = 
@@ -476,6 +476,7 @@ IndirectDeviceContext::IndirectDeviceContext(_In_ WDFDEVICE WdfDevice) :
     m_WdfDevice(WdfDevice)
 {
     m_Adapter = {};
+	ZeroMemory(m_Monitors, sizeof(m_Monitors));
 }
 
 IndirectDeviceContext::~IndirectDeviceContext()
@@ -495,15 +496,15 @@ void IndirectDeviceContext::InitAdapter()
     AdapterCaps.Size = sizeof(AdapterCaps);
 
     // Declare basic feature support for the adapter (required)
-    AdapterCaps.MaxMonitorsSupported = IDD_SAMPLE_MONITOR_COUNT;
+    AdapterCaps.MaxMonitorsSupported = IDD_MAX_MONITOR_COUNT;
     AdapterCaps.EndPointDiagnostics.Size = sizeof(AdapterCaps.EndPointDiagnostics);
     AdapterCaps.EndPointDiagnostics.GammaSupport = IDDCX_FEATURE_IMPLEMENTATION_NONE;
-    AdapterCaps.EndPointDiagnostics.TransmissionType = IDDCX_TRANSMISSION_TYPE_WIRED_OTHER;
+    AdapterCaps.EndPointDiagnostics.TransmissionType = IDDCX_TRANSMISSION_TYPE_NETWORK_OTHER;
 
     // Declare your device strings for telemetry (required)
-    AdapterCaps.EndPointDiagnostics.pEndPointFriendlyName = L"IddSample Device";
-    AdapterCaps.EndPointDiagnostics.pEndPointManufacturerName = L"Microsoft";
-    AdapterCaps.EndPointDiagnostics.pEndPointModelName = L"IddSample Model";
+    AdapterCaps.EndPointDiagnostics.pEndPointFriendlyName = L"VirtualDisplayDriver Device";
+    AdapterCaps.EndPointDiagnostics.pEndPointManufacturerName = L"Jannik Mueller";
+    AdapterCaps.EndPointDiagnostics.pEndPointModelName = L"VirtualDisplayDriver";
 
     // Declare your hardware and firmware versions (required)
     IDDCX_ENDPOINT_VERSION Version = {};
@@ -642,14 +643,17 @@ NTSTATUS IddSampleAdapterInitFinished(IDDCX_ADAPTER AdapterObject, const IDARG_I
     // This is called when the OS has finished setting up the adapter for use by the IddCx driver. It's now possible
     // to report attached monitors.
 
-    auto* pDeviceContextWrapper = WdfObjectGet_IndirectDeviceContextWrapper(AdapterObject);
-    if (NT_SUCCESS(pInArgs->AdapterInitStatus))
+	UNREFERENCED_PARAMETER(AdapterObject);
+	UNREFERENCED_PARAMETER(pInArgs);
+
+    //auto* pDeviceContextWrapper = WdfObjectGet_IndirectDeviceContextWrapper(AdapterObject);
+    /*if (NT_SUCCESS(pInArgs->AdapterInitStatus))
     {
         for (DWORD i = 0; i < IDD_SAMPLE_MONITOR_COUNT; i++)
         {
             pDeviceContextWrapper->pContext->FinishInit(i);
         }
-    }
+    }*/
 
     return STATUS_SUCCESS;
 }
