@@ -1006,7 +1006,26 @@ VOID IddIoDeviceControl(
 				}
 
 				WdfSpinLockAcquire(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock);
-				WdfRequestRetrieveOutputBuffer(Request, pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Width * pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Height * 4, &pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->StagingTexture[pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->ActiveBufferIndex], nullptr);
+				PVOID pBuffer;
+				Status = WdfRequestRetrieveOutputBuffer(Request, pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Width * pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Height * 4, &pBuffer, nullptr);
+
+				if (!NT_SUCCESS(Status)) {
+					WdfSpinLockRelease(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock);
+					break;
+				}
+
+                // Map the staging texture for CPU access
+                D3D11_MAPPED_SUBRESOURCE mappedResource;
+                Status = pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->DeviceContext->Map(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->StagingTexture[pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->ActiveBufferIndex].Get(), 0, D3D11_MAP_READ, 0, &mappedResource);
+                if (SUCCEEDED(Status)) {
+                    // Process the frame data
+					RtlCopyMemory(pBuffer, mappedResource.pData, pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Width * pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Height * 4);
+
+                    // Unmap the staging texture
+                    pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->DeviceContext->Unmap(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->StagingTexture[pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->ActiveBufferIndex].Get(), 0);
+                }
+
+
 				WdfSpinLockRelease(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock);
             }
             else {
