@@ -27,7 +27,7 @@ using namespace Microsoft::WRL;
 static constexpr DWORD IDD_MAX_MONITOR_COUNT = 8; // If monitor count > ARRAYSIZE(s_SampleMonitors), we create edid-less monitors
 
 // Default modes reported for edid-less monitors. The first mode is set as preferred
-static const struct IndirectSampleMonitor::SampleMonitorMode s_SampleDefaultModes[] = 
+static const struct IndirectSampleMonitor::SampleMonitorMode s_DefaultModes[] = 
 {
     { 1920, 1080, 60 },
     { 1600,  900, 60 },
@@ -35,7 +35,7 @@ static const struct IndirectSampleMonitor::SampleMonitorMode s_SampleDefaultMode
 };
 
 // FOR SAMPLE PURPOSES ONLY, Static info about monitors that will be reported to OS
-static const struct IndirectSampleMonitor s_SampleMonitors[] =
+static const struct IndirectSampleMonitor s_Monitors[] =
 {
     // Modified EDID from Dell S2719DGF
     {
@@ -55,19 +55,28 @@ static const struct IndirectSampleMonitor s_SampleMonitors[] =
         },
         0
     },
-    // Modified EDID from Lenovo Y27fA
+    // Virtual Display EDID
     {
         {
-            0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x30,0xAE,0xBF,0x65,0x01,0x01,0x01,0x01,0x20,0x1A,0x01,
-            0x04,0xA5,0x3C,0x22,0x78,0x3B,0xEE,0xD1,0xA5,0x55,0x48,0x9B,0x26,0x12,0x50,0x54,0x00,0x08,0x00,
-            0xA9,0xC0,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x68,0xD8,0x00,
-            0x18,0xF1,0x70,0x2D,0x80,0x58,0x2C,0x45,0x00,0x53,0x50,0x21,0x00,0x00,0x1E,0x00,0x00,0x00,0x10,
-            0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xFD,0x00,
-            0x30,0x92,0xB4,0xB4,0x22,0x01,0x0A,0x20,0x20,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFC,0x00,0x4C,
-            0x45,0x4E,0x20,0x59,0x32,0x37,0x66,0x41,0x0A,0x20,0x20,0x20,0x00,0x11
+            0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, // Header
+            0x10, 0xAC, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Manufacturer (arbitrary) and product ID
+            0x01, 0x01,                                     // EDID version 1.3
+            0x80, 0x32, 0x1F, 0x78,                         // Display dimensions and features
+            0xEE, 0x95, 0xA3, 0x54, 0x4C, 0x99, 0x26, 0x0F, // Chromaticity data
+            0x50, 0x54, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, // Established and standard timings
+            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+            0x02, 0x3A, 0x80, 0x18, 0x71, 0x38, 0x2D, 0x40, // Detailed Timing Descriptor 1 (1920x1080 @ 60Hz)
+            0x58, 0x2C, 0x45, 0x00, 0x00, 0x00, 0x00, 0x1E,
+            0x00, 0x00, 0x00, 0xFD, 0x00, 0x17, 0x3D, 0x0F, // Range Limits Descriptor (refresh rates)
+            0x00, 0x0A, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x00, 0x00, 0x00, 0xFC, 0x00, 0x56, 0x69, 0x72, // Monitor Name Descriptor ("VirtualDisplay")
+            0x74, 0x75, 0x61, 0x6C, 0x44, 0x69, 0x73, 0x70,
+            0x6C, 0x61, 0x79, 0x20, 0x00, 0x00, 0x00, 0xFF, // Serial Number (not provided)
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00                          // Padding
         },
         {
-            { 3840, 2160,  60 },
+            { 1920, 1080,  60 },
             { 1600,  900,  60 },
             { 1024,  768,  60 },
         },
@@ -126,6 +135,7 @@ extern "C" DRIVER_INITIALIZE DriverEntry;
 EVT_WDF_DRIVER_DEVICE_ADD IddSampleDeviceAdd;
 EVT_WDF_DEVICE_D0_ENTRY IddSampleDeviceD0Entry;
 
+EVT_IDD_CX_DEVICE_IO_CONTROL IddIoDeviceControl;
 EVT_IDD_CX_ADAPTER_INIT_FINISHED IddSampleAdapterInitFinished;
 EVT_IDD_CX_ADAPTER_COMMIT_MODES IddSampleAdapterCommitModes;
 
@@ -218,7 +228,7 @@ NTSTATUS IddSampleDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT pDeviceInit)
 
     // If the driver wishes to handle custom IoDeviceControl requests, it's necessary to use this callback since IddCx
     // redirects IoDeviceControl requests to an internal queue. This sample does not need this.
-    // IddConfig.EvtIddCxDeviceIoControl = IddSampleIoDeviceControl;
+    IddConfig.EvtIddCxDeviceIoControl = IddIoDeviceControl;
 
     IddConfig.EvtIddCxAdapterInitFinished = IddSampleAdapterInitFinished;
 
@@ -288,11 +298,24 @@ Direct3DDevice::Direct3DDevice()
     AdapterLuid = LUID{};
 }
 
+Direct3DDevice::~Direct3DDevice() {
+	if (FrameBufferSpinLock)
+	{
+		WdfObjectDelete(FrameBufferSpinLock);
+	}
+}
+
 HRESULT Direct3DDevice::Init()
 {
+    HRESULT hr = WdfSpinLockCreate(WDF_NO_OBJECT_ATTRIBUTES, &FrameBufferSpinLock);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
     // The DXGI factory could be cached, but if a new render adapter appears on the system, a new factory needs to be
     // created. If caching is desired, check DxgiFactory->IsCurrent() each time and recreate the factory if !IsCurrent.
-    HRESULT hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&DxgiFactory));
+    hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&DxgiFactory));
     if (FAILED(hr))
     {
         return hr;
@@ -443,6 +466,39 @@ void SwapChainProcessor::RunCore()
             // owns the Buffer.MetaData.pSurface surface until IddCxSwapChainReleaseAndAcquireBuffer returns
             // S_OK and gives us a new frame, a driver may want to use the surface in future to re-encode the desktop 
             // for better quality if there is no new frame for a while
+
+            WdfSpinLockAcquire(m_Device->FrameBufferSpinLock);
+
+            // Copy the frame data to the inactive buffer
+            int inactiveBuffer = 1 - m_Device->ActiveBufferIndex;
+
+			ComPtr<ID3D11Texture2D> pResource;
+            AcquiredBuffer.As(&pResource);
+
+            bool needsResize = false;
+            // Ensure the staging texture matches the source dimensions and format
+            if (!m_Device->StagingTexture[inactiveBuffer]) {
+				needsResize = true;
+			} else {
+				D3D11_TEXTURE2D_DESC desc;
+				m_Device->StagingTexture[inactiveBuffer]->GetDesc(&desc);
+				if (desc.Width != m_Device->Width || desc.Height != m_Device->Height) {
+					needsResize = true;
+				}
+			}
+
+			if (needsResize) {
+				m_Device->UpdateResolution(m_Device->Width, m_Device->Height);
+			}
+
+            m_Device->DeviceContext->CopyResource(m_Device->StagingTexture[inactiveBuffer].Get(), pResource.Get());
+
+            // Swap the active buffer index atomically
+            m_Device->ActiveBufferIndex = inactiveBuffer;
+
+            WdfSpinLockRelease(m_Device->FrameBufferSpinLock);
+
+            pResource.Reset();
             AcquiredBuffer.Reset();
             
             // Indicate to OS that we have finished inital processing of the frame, it is a hint that
@@ -467,6 +523,43 @@ void SwapChainProcessor::RunCore()
         }
     }
 }
+
+
+HRESULT Direct3DDevice::UpdateResolution(UINT newWidth, UINT newHeight) {
+    if (Width == newWidth && Height == newHeight) {
+        // No resolution change
+        return S_OK;
+    }
+
+    // Update stored resolution
+    Width = newWidth;
+    Height = newHeight;
+
+    // Recreate the staging texture
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width = Width;
+    desc.Height = Height;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.Usage = D3D11_USAGE_STAGING;
+    desc.BindFlags = 0;
+    desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+
+    HRESULT hr = Device->CreateTexture2D(&desc, nullptr, &StagingTexture[0]);
+    if (FAILED(hr)) {
+        return hr;
+    }
+
+    HRESULT hr = Device->CreateTexture2D(&desc, nullptr, &StagingTexture[1]);
+    if (FAILED(hr)) {
+        return hr;
+    }
+
+    return S_OK;
+}
+
 
 #pragma endregion
 
@@ -503,7 +596,7 @@ void IndirectDeviceContext::InitAdapter()
 
     // Declare your device strings for telemetry (required)
     AdapterCaps.EndPointDiagnostics.pEndPointFriendlyName = L"VirtualDisplayDriver Device";
-    AdapterCaps.EndPointDiagnostics.pEndPointManufacturerName = L"Jannik Mueller";
+    AdapterCaps.EndPointDiagnostics.pEndPointManufacturerName = L"VirtualDisplayDriver";
     AdapterCaps.EndPointDiagnostics.pEndPointModelName = L"VirtualDisplayDriver";
 
     // Declare your hardware and firmware versions (required)
@@ -537,7 +630,7 @@ void IndirectDeviceContext::InitAdapter()
     }
 }
 
-void IndirectDeviceContext::FinishInit(UINT ConnectorIndex)
+NTSTATUS IndirectDeviceContext::AddDisplay(UINT ConnectorIndex)
 {
     // ==============================
     // TODO: In a real driver, the EDID should be retrieved dynamically from a connected physical monitor. The EDIDs
@@ -558,16 +651,8 @@ void IndirectDeviceContext::FinishInit(UINT ConnectorIndex)
 
     MonitorInfo.MonitorDescription.Size = sizeof(MonitorInfo.MonitorDescription);
     MonitorInfo.MonitorDescription.Type = IDDCX_MONITOR_DESCRIPTION_TYPE_EDID;
-    if (ConnectorIndex >= ARRAYSIZE(s_SampleMonitors))
-    {
-        MonitorInfo.MonitorDescription.DataSize = 0;
-        MonitorInfo.MonitorDescription.pData = nullptr;
-    }
-    else
-    {
-        MonitorInfo.MonitorDescription.DataSize = IndirectSampleMonitor::szEdidBlock;
-        MonitorInfo.MonitorDescription.pData = const_cast<BYTE*>(s_SampleMonitors[ConnectorIndex].pEdidBlock);
-    }
+    MonitorInfo.MonitorDescription.DataSize = IndirectSampleMonitor::szEdidBlock;
+    MonitorInfo.MonitorDescription.pData = const_cast<BYTE*>(s_Monitors[1].pEdidBlock);
 
     // ==============================
     // TODO: The monitor's container ID should be distinct from "this" device's container ID if the monitor is not
@@ -575,6 +660,8 @@ void IndirectDeviceContext::FinishInit(UINT ConnectorIndex)
     // monitor and can be used to associate the monitor with other devices, like audio or input devices. In this
     // sample we generate a random container ID GUID, but it's best practice to choose a stable container ID for a
     // unique monitor or to use "this" device's container ID for a permanent/integrated monitor.
+    // 
+    // NOTE: We are using virtual monitors so I dont care.
     // ==============================
 
     // Create a container ID
@@ -593,10 +680,57 @@ void IndirectDeviceContext::FinishInit(UINT ConnectorIndex)
         auto* pMonitorContextWrapper = WdfObjectGet_IndirectMonitorContextWrapper(MonitorCreateOut.MonitorObject);
         pMonitorContextWrapper->pContext = new IndirectMonitorContext(MonitorCreateOut.MonitorObject);
 
+		// Store the monitor object in the array
+		//m_Monitors[ConnectorIndex] = MonitorCreateOut.MonitorObject;
+        (IDDCX_MONITOR)InterlockedExchangePointer((void**)&m_Monitors[ConnectorIndex], MonitorCreateOut.MonitorObject);
+
         // Tell the OS that the monitor has been plugged in
         IDARG_OUT_MONITORARRIVAL ArrivalOut;
         Status = IddCxMonitorArrival(MonitorCreateOut.MonitorObject, &ArrivalOut);
     }
+
+    return Status;
+}
+
+NTSTATUS IndirectDeviceContext::RemoveDisplay(UINT ConnectorIndex)
+{
+	if (m_Monitors[ConnectorIndex] != nullptr)
+	{
+        auto* pMonitorContextWrapper = WdfObjectGet_IndirectMonitorContextWrapper(m_Monitors[ConnectorIndex]);
+
+        NTSTATUS Status = IddCxMonitorDeparture(m_Monitors[ConnectorIndex]);
+
+		if (NT_SUCCESS(Status))
+		{
+            (IDDCX_MONITOR)InterlockedExchangePointer((void**)&m_Monitors[ConnectorIndex], nullptr);
+		}
+
+        return Status;
+	}
+
+    return STATUS_INVALID_PARAMETER;
+}
+
+IDDCX_MONITOR IndirectDeviceContext::GetMonitor(UINT MonitorIndex)
+{
+	if (MonitorIndex < IDD_MAX_MONITOR_COUNT)
+	{
+		return m_Monitors[MonitorIndex];
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+bool IndirectDeviceContext::HasMonitor(UINT MonitorIndex)
+{
+    if (MonitorIndex > IDD_MAX_MONITOR_COUNT)
+    {
+        return false;
+    }
+
+	return m_Monitors[MonitorIndex] != nullptr;
 }
 
 IndirectMonitorContext::IndirectMonitorContext(_In_ IDDCX_MONITOR Monitor) :
@@ -622,6 +756,9 @@ void IndirectMonitorContext::AssignSwapChain(IDDCX_SWAPCHAIN SwapChain, LUID Ren
     }
     else
     {
+		// Update the resolution of the device
+        Device->UpdateResolution(1920, 1080);
+
         // Create a new swap-chain processing thread
         m_ProcessingThread.reset(new SwapChainProcessor(SwapChain, Device, NewFrameEvent));
     }
@@ -699,27 +836,24 @@ NTSTATUS IddSampleParseMonitorDescription(const IDARG_IN_PARSEMONITORDESCRIPTION
         if (pInArgs->MonitorDescription.DataSize != IndirectSampleMonitor::szEdidBlock)
             return STATUS_INVALID_PARAMETER;
 
-        DWORD SampleMonitorIdx = 0;
-        for(; SampleMonitorIdx < ARRAYSIZE(s_SampleMonitors); SampleMonitorIdx++)
+        DWORD SampleMonitorIdx = 1;
+        if (memcmp(pInArgs->MonitorDescription.pData, s_Monitors[SampleMonitorIdx].pEdidBlock, IndirectSampleMonitor::szEdidBlock) == 0)
         {
-            if (memcmp(pInArgs->MonitorDescription.pData, s_SampleMonitors[SampleMonitorIdx].pEdidBlock, IndirectSampleMonitor::szEdidBlock) == 0)
+            // Copy the known modes to the output buffer
+            for (DWORD ModeIndex = 0; ModeIndex < IndirectSampleMonitor::szModeList; ModeIndex++)
             {
-                // Copy the known modes to the output buffer
-                for (DWORD ModeIndex = 0; ModeIndex < IndirectSampleMonitor::szModeList; ModeIndex++)
-                {
-                    pInArgs->pMonitorModes[ModeIndex] = CreateIddCxMonitorMode(
-                        s_SampleMonitors[SampleMonitorIdx].pModeList[ModeIndex].Width,
-                        s_SampleMonitors[SampleMonitorIdx].pModeList[ModeIndex].Height,
-                        s_SampleMonitors[SampleMonitorIdx].pModeList[ModeIndex].VSync,
-                        IDDCX_MONITOR_MODE_ORIGIN_MONITORDESCRIPTOR
-                    );
-                }
-
-                // Set the preferred mode as represented in the EDID
-                pOutArgs->PreferredMonitorModeIdx = s_SampleMonitors[SampleMonitorIdx].ulPreferredModeIdx;
-        
-                return STATUS_SUCCESS;
+                pInArgs->pMonitorModes[ModeIndex] = CreateIddCxMonitorMode(
+                    s_Monitors[SampleMonitorIdx].pModeList[ModeIndex].Width,
+                    s_Monitors[SampleMonitorIdx].pModeList[ModeIndex].Height,
+                    s_Monitors[SampleMonitorIdx].pModeList[ModeIndex].VSync,
+                    IDDCX_MONITOR_MODE_ORIGIN_MONITORDESCRIPTOR
+                );
             }
+
+            // Set the preferred mode as represented in the EDID
+            pOutArgs->PreferredMonitorModeIdx = s_Monitors[SampleMonitorIdx].ulPreferredModeIdx;
+
+            return STATUS_SUCCESS;
         }
 
         // This EDID block does not belong to the monitors we reported earlier
@@ -741,21 +875,21 @@ NTSTATUS IddSampleMonitorGetDefaultModes(IDDCX_MONITOR MonitorObject, const IDAR
 
     if (pInArgs->DefaultMonitorModeBufferInputCount == 0)
     {
-        pOutArgs->DefaultMonitorModeBufferOutputCount = ARRAYSIZE(s_SampleDefaultModes); 
+        pOutArgs->DefaultMonitorModeBufferOutputCount = ARRAYSIZE(s_DefaultModes); 
     }
     else
     {
-        for (DWORD ModeIndex = 0; ModeIndex < ARRAYSIZE(s_SampleDefaultModes); ModeIndex++)
+        for (DWORD ModeIndex = 0; ModeIndex < ARRAYSIZE(s_DefaultModes); ModeIndex++)
         {
             pInArgs->pDefaultMonitorModes[ModeIndex] = CreateIddCxMonitorMode(
-                s_SampleDefaultModes[ModeIndex].Width,
-                s_SampleDefaultModes[ModeIndex].Height,
-                s_SampleDefaultModes[ModeIndex].VSync,
+                s_DefaultModes[ModeIndex].Width,
+                s_DefaultModes[ModeIndex].Height,
+                s_DefaultModes[ModeIndex].VSync,
                 IDDCX_MONITOR_MODE_ORIGIN_DRIVER
             );
         }
 
-        pOutArgs->DefaultMonitorModeBufferOutputCount = ARRAYSIZE(s_SampleDefaultModes); 
+        pOutArgs->DefaultMonitorModeBufferOutputCount = ARRAYSIZE(s_DefaultModes);
         pOutArgs->PreferredMonitorModeIdx = 0;
     }
 
@@ -808,6 +942,82 @@ NTSTATUS IddSampleMonitorUnassignSwapChain(IDDCX_MONITOR MonitorObject)
     auto* pMonitorContextWrapper = WdfObjectGet_IndirectMonitorContextWrapper(MonitorObject);
     pMonitorContextWrapper->pContext->UnassignSwapChain();
     return STATUS_SUCCESS;
+}
+
+_Use_decl_annotations_
+VOID IddIoDeviceControl(
+    WDFDEVICE Device,
+    WDFREQUEST Request,
+    size_t OutputBufferLength,
+    size_t InputBufferLength,
+    ULONG IoControlCode)
+{
+	UNREFERENCED_PARAMETER(OutputBufferLength);
+	UNREFERENCED_PARAMETER(InputBufferLength);
+	NTSTATUS Status = STATUS_SUCCESS;
+	switch (IoControlCode)
+	{
+	case IOCTL_ADD_DISPLAY:
+	{
+		// Add a display to the device
+		ULONG ConnectorIndex;
+		Status = WdfRequestRetrieveInputBuffer(Request, sizeof(ULONG), reinterpret_cast<PVOID*>(&ConnectorIndex), nullptr);
+		if (NT_SUCCESS(Status))
+		{
+			auto* pDeviceContextWrapper = WdfObjectGet_IndirectDeviceContextWrapper(Device);
+			Status = pDeviceContextWrapper->pContext->AddDisplay(ConnectorIndex);
+		}
+		break;
+	}
+    case IOCTL_REMOVE_DISPLAY:
+		// Remove a display from the device
+		ULONG ConnectorIndex;
+		Status = WdfRequestRetrieveInputBuffer(Request, sizeof(ULONG), reinterpret_cast<PVOID*>(&ConnectorIndex), nullptr);
+		if (NT_SUCCESS(Status))
+		{
+			auto* pDeviceContextWrapper = WdfObjectGet_IndirectDeviceContextWrapper(Device);
+			Status = pDeviceContextWrapper->pContext->RemoveDisplay(ConnectorIndex);
+		}
+		break;
+    case IOCTL_GET_FRAME:
+		// Get a frame from the device
+		ULONG ConnectorIndex;
+		Status = WdfRequestRetrieveInputBuffer(Request, sizeof(ULONG), reinterpret_cast<PVOID*>(&ConnectorIndex), nullptr);
+		if (NT_SUCCESS(Status))
+		{
+			auto* pDeviceContextWrapper = WdfObjectGet_IndirectDeviceContextWrapper(Device);
+			if (pDeviceContextWrapper->pContext->HasMonitor(ConnectorIndex))
+			{
+                auto* pMonitorContextWrapper = WdfObjectGet_IndirectMonitorContextWrapper(pDeviceContextWrapper->pContext->GetMonitor(ConnectorIndex));
+
+				if (!pMonitorContextWrapper->pContext->m_ProcessingThread) {
+					Status = STATUS_DEVICE_NOT_READY;
+                    break;
+				}
+
+				if (!pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device || !pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock) {
+					Status = STATUS_DEVICE_NOT_READY;
+                    break;
+				}
+
+				if (!pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->StagingTexture[0] || !pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->StagingTexture[1]) {
+					Status = STATUS_DEVICE_NOT_READY;
+                    break;
+				}
+
+				WdfSpinLockAcquire(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock);
+				WdfRequestRetrieveOutputBuffer(Request, pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Width * pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Height * 4, &pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->StagingTexture[pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->ActiveBufferIndex], nullptr);
+				WdfSpinLockRelease(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock);
+            }
+            else {
+				Status = STATUS_INVALID_PARAMETER;
+            }
+		}
+	default:
+		Status = STATUS_INVALID_DEVICE_REQUEST;
+		break;
+	}
+	WdfRequestComplete(Request, Status);
 }
 
 #pragma endregion
