@@ -49,8 +49,22 @@ enum Setting {
 	SETTING_ULTRAWIDE,
 };
 
+enum DebugData {
+	DEBUG_DATA_RTSP_URL = 0,
+	DEBUG_DATA_CONNECTION_STATE,
+};
+
+/*
+Initialies the Library, creating internal structures and setting up the driver.
+*/
 ARDISPLAYLIB_API bool Init();
 ARDISPLAYLIB_API bool Shutdown();
+
+ARDISPLAYLIB_API void RunDiscovery();
+ARDISPLAYLIB_API void RunDisplayThread(int displayIndex);
+ARDISPLAYLIB_API void RunServerThread();
+
+ARDISPLAYLIB_API void StopDiscovery();
 
 ARDISPLAYLIB_API void RegisterEventHandler(void(*handler)(event_t* event));
 ARDISPLAYLIB_API void UnregisterEventHandler(void(*handler)(event_t* event));
@@ -59,3 +73,5 @@ ARDISPLAYLIB_API char* GetPSK();
 
 ARDISPLAYLIB_API void SetSettingBool(enum Setting, bool value);
 ARDISPLAYLIB_API void SetSettingInt(enum Setting, int value);
+
+ARDISPLAYLIB_API char* GetDebugData(enum DebugData);
