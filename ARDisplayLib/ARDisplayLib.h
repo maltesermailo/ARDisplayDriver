@@ -58,20 +58,31 @@ enum DebugData {
 Initialies the Library, creating internal structures and setting up the driver.
 */
 ARDISPLAYLIB_API bool Init();
+
+//Disconnects from the current client and shuts down the library.
 ARDISPLAYLIB_API bool Shutdown();
 
+//Starts the discovery UDP thread to announce to clients that display is reachable.
 ARDISPLAYLIB_API void RunDiscovery();
+
+//Runs a display thread for the given display index. This will start the frame capture from the driver.
 ARDISPLAYLIB_API void RunDisplayThread(int displayIndex);
+
+//Runs the RTSP server thread. Has to be started before running the discovery or any display threads.
 ARDISPLAYLIB_API void RunServerThread();
 
+//Stops the discovery. Call this once a client connection has been established.
 ARDISPLAYLIB_API void StopDiscovery();
 
 ARDISPLAYLIB_API void RegisterEventHandler(void(*handler)(event_t* event));
 ARDISPLAYLIB_API void UnregisterEventHandler(void(*handler)(event_t* event));
 
+//Gets the current random generated 6-digit PSK
 ARDISPLAYLIB_API char* GetPSK();
 
+//Sets a server setting to a given value.
 ARDISPLAYLIB_API void SetSettingBool(enum Setting, bool value);
 ARDISPLAYLIB_API void SetSettingInt(enum Setting, int value);
 
+//Get debug value from the library.
 ARDISPLAYLIB_API char* GetDebugData(enum DebugData);
