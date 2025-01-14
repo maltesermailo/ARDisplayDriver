@@ -81,8 +81,8 @@ ARDISPLAYLIB_API void UnregisterEventHandler(void(*handler)(event_t* event));
 ARDISPLAYLIB_API char* GetPSK();
 
 //Sets a server setting to a given value.
-ARDISPLAYLIB_API void SetSettingBool(enum Setting, bool value);
-ARDISPLAYLIB_API void SetSettingInt(enum Setting, int value);
+ARDISPLAYLIB_API void SetSettingBool(enum Setting setting, bool value);
+ARDISPLAYLIB_API void SetSettingInt(enum Setting setting, int value);
 
 //Get debug value from the library.
-ARDISPLAYLIB_API char* GetDebugData(enum DebugData);
+ARDISPLAYLIB_API char* GetDebugData(enum DebugData data);
