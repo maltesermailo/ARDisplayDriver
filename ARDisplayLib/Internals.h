@@ -8,6 +8,8 @@
 #include <openssl/aes.h>
 #include <gst/gst.h>
 #include <gst/rtsp-server/rtsp-server.h>
+#include <gst/app/gstappsrc.h>
+#include <gst/rtp/rtp.h>
 #include <string>
 
 
@@ -17,8 +19,9 @@ private:
     GstRTSPMediaFactory* factory;
     GstRTSPAuth* auth;
     GTlsCertificate* certificate;
+    int srcId;
     std::string psk;
-    std::thread serverThread;
+    GMainLoop* loop;
     std::atomic<bool> running{ true };
 
     bool authenticateClient(GstRTSPContext* ctx);
@@ -26,10 +29,10 @@ private:
 
 public:
     RTSPStreamer(int port, const std::string& pre_shared_key);
-
     ~RTSPStreamer();
 
-    void pushFrame(const std::vector<uint8_t>& frameData);
+    void mainLoop();
+    void pushFrame(int displayIndex, int sequenceNumber, const std::vector<uint8_t>& frameData);
 };
 
 class FrameHandler {
