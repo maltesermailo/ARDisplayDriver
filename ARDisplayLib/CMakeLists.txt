@@ -11,7 +11,7 @@ elseif(WIN32)
     set(OS_SOURCES "")
 endif()
 
-add_library (ARDisplayLib SHARED ${OS_SOURCES} "common/Library.cpp" "ARDisplayLib.h" "Internals.h")
+add_library (ARDisplayLib SHARED ${OS_SOURCES} "common/Library.cpp" "ARDisplayLib.h" "Internals.h" "common/Discovery.cpp")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET ARDisplayLib PROPERTY CXX_STANDARD 20)
@@ -43,13 +43,13 @@ target_link_libraries(ARDisplayLib
 )
 
 # Add NVENC support
-set(NVENC_SDK_PATH "/path/to/NVIDIA_SDK/Video_Codec_SDK_12.0")
-include_directories(${NVENC_SDK_PATH}/Interface)
-if(WIN32)
-    target_link_libraries(ARDisplayLib "${NVENC_SDK_PATH}/Lib/Win64/nvencodeapi.lib")
-elseif(UNIX)
-    target_link_libraries(ARDisplayLib "${NVENC_SDK_PATH}/Lib/Linux/x64/libnvidia-encode.so")
-endif()
+#set(NVENC_SDK_PATH "/path/to/NVIDIA_SDK/Video_Codec_SDK_12.0")
+#include_directories(${NVENC_SDK_PATH}/Interface)
+#if(WIN32)
+#    target_link_libraries(ARDisplayLib "${NVENC_SDK_PATH}/Lib/Win64/nvencodeapi.lib")
+#elseif(UNIX)
+#    target_link_libraries(ARDisplayLib "${NVENC_SDK_PATH}/Lib/Linux/x64/libnvidia-encode.so")
+#endif()
 
 
 # Installation rules
