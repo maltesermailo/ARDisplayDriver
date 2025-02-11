@@ -67,14 +67,14 @@ namespace Microsoft
 			HRESULT GetFromFrameBuffer(BYTE* pDest, UINT DestSize, UINT* pBytesWritten);
 
             LUID AdapterLuid;
-			UINT Width;
-			UINT Height;
+			UINT Width = 0;
+			UINT Height = 0;
             Microsoft::WRL::ComPtr<IDXGIFactory5> DxgiFactory;
             Microsoft::WRL::ComPtr<IDXGIAdapter1> Adapter;
             Microsoft::WRL::ComPtr<ID3D11Device> Device;
             Microsoft::WRL::ComPtr<ID3D11DeviceContext> DeviceContext;
 
-            int ActiveBufferIndex;              // Index of the active buffer
+            int ActiveBufferIndex = 0;              // Index of the active buffer
 
             // Synchronization
             WDFSPINLOCK FrameBufferSpinLock;    // Spinlock for buffer access

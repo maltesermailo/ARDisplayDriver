@@ -1,14 +1,14 @@
 ﻿# CMakeList.txt: CMake-Projekt für "ARDisplayLib". Schließen Sie die Quelle ein, und definieren Sie
 # projektspezifische Logik hier.
 #
-
+set(CMAKE_LINK_FULLPATH ON)
 # Fügen Sie der ausführbaren Datei dieses Projekts eine Quelle hinzu.
 if(APPLE)
     set(OS_SOURCES "")
 elseif(UNIX)
     set(OS_SOURCES "")
 elseif(WIN32)
-    set(OS_SOURCES "")
+    set(OS_SOURCES "win/Windows.cpp")
 endif()
 
 add_library (ARDisplayLib SHARED ${OS_SOURCES} "common/Library.cpp" "ARDisplayLib.h" "Internals.h" "common/Discovery.cpp")
@@ -29,18 +29,36 @@ endif()
 find_package(PkgConfig REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
+pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0 gstreamer-app-1.0 gstreamer-rtp-1.0 gstreamer-rtsp-1.0 gstreamer-rtsp-server-1.0 gstreamer-sdp-1.0 gstreamer-video-1.0 gstreamer-net-1.0)
 pkg_check_modules(GSTREAMER_BASE REQUIRED gstreamer-base-1.0)
+pkg_check_modules(GLIB REQUIRED glib-2.0 gobject-2.0)
+pkg_check_modules(GIO REQUIRED gio-2.0)
 
 # Add include directories and libraries
-include_directories(${GSTREAMER_INCLUDE_DIRS} ${GSTREAMER_BASE_INCLUDE_DIRS})
+include_directories(${GSTREAMER_INCLUDE_DIRS} ${GSTREAMER_BASE_INCLUDE_DIRS} ${GIO_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS})
 link_directories(${GSTREAMER_LIBRARY_DIRS} ${GSTREAMER_BASE_LIBRARY_DIRS})
 
-# Link GStreamer libraries
-target_link_libraries(ARDisplayLib
-    ${GSTREAMER_LIBRARIES}
-    ${GSTREAMER_BASE_LIBRARIES}
-)
+if(WIN32)
+    target_link_options(ARDisplayLib PRIVATE "/LIBPATH:${GSTREAMER_LIBRARY_DIRS}")
+    # Link GStreamer libraries
+    target_link_libraries(ARDisplayLib
+        ${GSTREAMER_LIBRARIES}
+        ${GSTREAMER_BASE_LIBRARIES}
+        ${GLIB_LIBRARIES}
+        ${GIO_LIBRARIES}
+        OpenSSL::SSL OpenSSL::Crypto
+        ws2_32
+    )
+else()
+    # Link GStreamer libraries
+    target_link_libraries(ARDisplayLib
+        ${GSTREAMER_LIBRARIES}
+        ${GSTREAMER_BASE_LIBRARIES}
+        ${GLIB_LIBRARIES}
+        ${GIO_LIBRARIES}
+        OpenSSL::SSL OpenSSL::Crypto
+    )
+endif()
 
 # Add NVENC support
 #set(NVENC_SDK_PATH "/path/to/NVIDIA_SDK/Video_Codec_SDK_12.0")

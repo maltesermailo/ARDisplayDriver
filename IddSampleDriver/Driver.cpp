@@ -552,7 +552,7 @@ HRESULT Direct3DDevice::UpdateResolution(UINT newWidth, UINT newHeight) {
         return hr;
     }
 
-    HRESULT hr = Device->CreateTexture2D(&desc, nullptr, &StagingTexture[1]);
+    hr = Device->CreateTexture2D(&desc, nullptr, &StagingTexture[1]);
     if (FAILED(hr)) {
         return hr;
     }
@@ -696,8 +696,6 @@ NTSTATUS IndirectDeviceContext::RemoveDisplay(UINT ConnectorIndex)
 {
 	if (m_Monitors[ConnectorIndex] != nullptr)
 	{
-        auto* pMonitorContextWrapper = WdfObjectGet_IndirectMonitorContextWrapper(m_Monitors[ConnectorIndex]);
-
         NTSTATUS Status = IddCxMonitorDeparture(m_Monitors[ConnectorIndex]);
 
 		if (NT_SUCCESS(Status))
@@ -970,68 +968,71 @@ VOID IddIoDeviceControl(
 		break;
 	}
     case IOCTL_REMOVE_DISPLAY:
-		// Remove a display from the device
-		ULONG ConnectorIndex;
-		Status = WdfRequestRetrieveInputBuffer(Request, sizeof(ULONG), reinterpret_cast<PVOID*>(&ConnectorIndex), nullptr);
-		if (NT_SUCCESS(Status))
-		{
-			auto* pDeviceContextWrapper = WdfObjectGet_IndirectDeviceContextWrapper(Device);
-			Status = pDeviceContextWrapper->pContext->RemoveDisplay(ConnectorIndex);
-		}
+    {
+        // Remove a display from the device
+        ULONG ConnectorIndex;
+        Status = WdfRequestRetrieveInputBuffer(Request, sizeof(ULONG), reinterpret_cast<PVOID*>(&ConnectorIndex), nullptr);
+        if (NT_SUCCESS(Status))
+        {
+            auto* pDeviceContextWrapper = WdfObjectGet_IndirectDeviceContextWrapper(Device);
+            Status = pDeviceContextWrapper->pContext->RemoveDisplay(ConnectorIndex);
+        }
+    }
 		break;
-    case IOCTL_GET_FRAME:
-		// Get a frame from the device
-		ULONG ConnectorIndex;
-		Status = WdfRequestRetrieveInputBuffer(Request, sizeof(ULONG), reinterpret_cast<PVOID*>(&ConnectorIndex), nullptr);
-		if (NT_SUCCESS(Status))
-		{
-			auto* pDeviceContextWrapper = WdfObjectGet_IndirectDeviceContextWrapper(Device);
-			if (pDeviceContextWrapper->pContext->HasMonitor(ConnectorIndex))
-			{
+    case IOCTL_GET_FRAME: {
+        // Get a frame from the device
+        ULONG ConnectorIndex;
+        Status = WdfRequestRetrieveInputBuffer(Request, sizeof(ULONG), reinterpret_cast<PVOID*>(&ConnectorIndex), nullptr);
+        if (NT_SUCCESS(Status))
+        {
+            auto* pDeviceContextWrapper = WdfObjectGet_IndirectDeviceContextWrapper(Device);
+            if (pDeviceContextWrapper->pContext->HasMonitor(ConnectorIndex))
+            {
                 auto* pMonitorContextWrapper = WdfObjectGet_IndirectMonitorContextWrapper(pDeviceContextWrapper->pContext->GetMonitor(ConnectorIndex));
 
-				if (!pMonitorContextWrapper->pContext->m_ProcessingThread) {
-					Status = STATUS_DEVICE_NOT_READY;
+                if (!pMonitorContextWrapper->pContext->m_ProcessingThread) {
+                    Status = STATUS_DEVICE_NOT_READY;
                     break;
-				}
+                }
 
-				if (!pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device || !pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock) {
-					Status = STATUS_DEVICE_NOT_READY;
+                if (!pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device || !pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock) {
+                    Status = STATUS_DEVICE_NOT_READY;
                     break;
-				}
+                }
 
-				if (!pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->StagingTexture[0] || !pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->StagingTexture[1]) {
-					Status = STATUS_DEVICE_NOT_READY;
+                if (!pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->StagingTexture[0] || !pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->StagingTexture[1]) {
+                    Status = STATUS_DEVICE_NOT_READY;
                     break;
-				}
+                }
 
-				WdfSpinLockAcquire(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock);
-				PVOID pBuffer;
-				Status = WdfRequestRetrieveOutputBuffer(Request, pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Width * pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Height * 4, &pBuffer, nullptr);
+                WdfSpinLockAcquire(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock);
+                PVOID pBuffer;
+                Status = WdfRequestRetrieveOutputBuffer(Request, pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Width * pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Height * 4, &pBuffer, nullptr);
 
-				if (!NT_SUCCESS(Status)) {
-					WdfSpinLockRelease(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock);
-					break;
-				}
+                if (!NT_SUCCESS(Status)) {
+                    WdfSpinLockRelease(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock);
+                    break;
+                }
 
                 // Map the staging texture for CPU access
                 D3D11_MAPPED_SUBRESOURCE mappedResource;
                 Status = pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->DeviceContext->Map(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->StagingTexture[pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->ActiveBufferIndex].Get(), 0, D3D11_MAP_READ, 0, &mappedResource);
                 if (SUCCEEDED(Status)) {
                     // Process the frame data
-					RtlCopyMemory(pBuffer, mappedResource.pData, pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Width * pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Height * 4);
+                    RtlCopyMemory(pBuffer, mappedResource.pData, pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Width * pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->Height * 4);
 
                     // Unmap the staging texture
                     pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->DeviceContext->Unmap(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->StagingTexture[pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->ActiveBufferIndex].Get(), 0);
                 }
 
 
-				WdfSpinLockRelease(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock);
+                WdfSpinLockRelease(pMonitorContextWrapper->pContext->m_ProcessingThread->m_Device->FrameBufferSpinLock);
             }
             else {
-				Status = STATUS_INVALID_PARAMETER;
+                Status = STATUS_INVALID_PARAMETER;
             }
-		}
+        }
+    }
 	default:
 		Status = STATUS_INVALID_DEVICE_REQUEST;
 		break;

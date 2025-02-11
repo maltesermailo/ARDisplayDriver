@@ -8,14 +8,39 @@
 #include <iostream>
 #include <sstream>
 
+typedef void(*EventHandler)(event_t*);
+
 std::unique_ptr<RTSPStreamer> streamer;
 std::vector<std::unique_ptr<Display>> displays;
+std::vector<EventHandler> eventHandlers;
+callback* callback_ptr;
 
-ARDISPLAYLIB_API bool Init() {
+int numDisplays = 1;
+
+char* GetSetting(char* name);
+int GetSettingInt(char* name);
+
+void CreateDisplays() {
+	for (int i = 0; i < numDisplays; i++) {
+		displays.push_back(std::make_unique<Display>(i));
+
+		displays[i]->setup(); //Will throw if display cant be created!!
+	}
+}
+
+ARDISPLAYLIB_API bool Startup() {
 	try {
 		streamer = std::make_unique<RTSPStreamer>(8554, "123456");
 	}
 	catch (...) {
+		return false;
+	}
+
+	try {
+		CreateDisplays();
+	}
+	catch (...) {
+		//Something went completely wrong.
 		return false;
 	}
 
@@ -24,6 +49,14 @@ ARDISPLAYLIB_API bool Init() {
 
 ARDISPLAYLIB_API bool Shutdown() {
 	streamer.reset();
+	eventHandlers.clear();
+
+	for (auto& display : displays) {
+		display->teardown();
+		display.reset();
+	}
+
+	displays.clear();
 
 	return true;
 }
@@ -34,6 +67,18 @@ ARDISPLAYLIB_API void RunServerThread() {
 	}
 
 	streamer->mainLoop();
+}
+
+ARDISPLAYLIB_API void RegisterEventHandler(EventHandler eventHandler) {
+	eventHandlers.push_back(eventHandler);
+}
+
+ARDISPLAYLIB_API void UnregisterEventHandler(EventHandler eventHandler) {
+	std::erase(eventHandlers, eventHandler);
+}
+
+ARDISPLAYLIB_API void SetCallback(callback* cb) {
+	callback_ptr = cb;
 }
 
 //#########################################################################################
@@ -58,6 +103,20 @@ static void push_buffer_with_metadata(GstElement* payloader, GstBuffer* buffer, 
 
 		gst_rtp_buffer_unmap(&rtp);
 	}
+}
+
+void push_event(event_t* event) {
+	for (auto& handler : eventHandlers) {
+		handler(event);
+	}
+}
+
+char* GetSetting(char* name) {
+	(*callback_ptr)(GET_SETTING, STRING, name);
+}
+
+int GetSettingInt(char* name) {
+	(*callback_ptr)(GET_SETTING, INTEGER, name);
 }
 
 //#########################################################################################

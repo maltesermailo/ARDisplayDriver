@@ -11,7 +11,9 @@
 #include <gst/app/gstappsrc.h>
 #include <gst/rtp/rtp.h>
 #include <string>
+#include "ARDisplayLib.h"
 
+void push_event(event_t* event);
 
 class RTSPStreamer {
 private:
@@ -24,7 +26,6 @@ private:
     GMainLoop* loop;
     std::atomic<bool> running{ true };
 
-    bool authenticateClient(GstRTSPContext* ctx);
     void setupSelfSignedCert();
 
 public:
@@ -52,6 +53,9 @@ class Display {
 public:
 	Display(int index);
 	~Display();
+
+    bool setup();
+    void teardown();
 
     int index;
 
